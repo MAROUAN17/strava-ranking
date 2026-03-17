@@ -23,8 +23,9 @@ RUN npm install --omit=dev
 
 COPY --from=build /app/src ./src
 COPY --from=build /app/client/dist ./client/dist
-COPY --from=build /app/data ./data
 COPY --from=build /app/.env.example ./.env.example
+
+RUN mkdir -p /app/data
 
 EXPOSE 3000
 
