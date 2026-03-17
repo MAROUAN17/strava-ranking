@@ -5,8 +5,8 @@ WORKDIR /app
 COPY package*.json ./
 COPY client/package*.json ./client/
 
-RUN npm install
-RUN npm --prefix client install
+RUN npm install --include=dev
+RUN npm --prefix client install --include=dev
 
 COPY . .
 
