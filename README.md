@@ -1,6 +1,8 @@
 # ranking-strava
 
-Express + React starter for building a leaderboard and profile system powered by Strava activities.
+This project is something I built to solve a real personal problem: motivating my family members to do more sport and stay active. The idea was to make practicing sport feel more fun and engaging by creating a leaderboard and a scoring system based on Strava activities.
+
+Technically, the app is an Express + React leaderboard and profile system powered by Strava activities.
 
 ## Stack
 
