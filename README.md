@@ -51,6 +51,7 @@ STRAVA_CLIENT_ID=your-client-id
 STRAVA_CLIENT_SECRET=your-client-secret
 STRAVA_REDIRECT_URI=http://localhost:3000/api/strava/callback
 STRAVA_MOBILE_REDIRECT_URI=stravaranking://auth/strava/callback
+STRAVA_MOBILE_BRIDGE_URL=http://localhost:3000/api/strava/mobile/callback
 FRONTEND_URL=http://localhost:5173
 ```
 
@@ -64,6 +65,7 @@ PORT=3000
 ALLOWED_ORIGINS=https://your-domain.com
 FRONTEND_URL=https://your-domain.com
 STRAVA_REDIRECT_URI=https://your-domain.com/api/strava/callback
+STRAVA_MOBILE_BRIDGE_URL=https://your-domain.com/api/strava/mobile/callback
 ```
 
 2. Build the frontend:
@@ -103,6 +105,7 @@ Notes:
 - `GET /api/strava/status`
 - `GET /api/strava/callback`
 - `GET /api/strava/mobile/auth-url`
+- `GET /api/strava/mobile/callback`
 - `POST /api/strava/mobile/exchange-code`
 - `GET /api/strava/athlete`
 - `GET /api/strava/activities`
@@ -110,7 +113,13 @@ Notes:
 
 ## Capacitor mobile auth
 
-For the mobile app, Strava redirects back into Capacitor through:
+For the mobile app, Strava first redirects to your hosted backend:
+
+```txt
+https://your-domain.com/api/strava/mobile/callback
+```
+
+That backend route immediately hands off into Capacitor through:
 
 ```txt
 stravaranking://auth/strava/callback
@@ -125,6 +134,7 @@ POST /api/strava/mobile/exchange-code
 If you change the mobile redirect scheme, update all three places together:
 
 - `STRAVA_MOBILE_REDIRECT_URI`
+- `STRAVA_MOBILE_BRIDGE_URL`
 - [`client/src/App.jsx`](/home/marouan/Desktop/ranking-strava/client/src/App.jsx)
 - Android/iOS deep-link configuration
 

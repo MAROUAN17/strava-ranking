@@ -3,6 +3,7 @@ const express = require('express');
 const {
   getAuthUrl,
   getMobileAuthUrl,
+  handleMobileCallback,
   getConnectionStatus,
   handleCallback,
   getAthlete,
@@ -17,6 +18,7 @@ const router = express.Router();
 
 router.get('/auth-url', getAuthUrl);
 router.get('/mobile/auth-url', getMobileAuthUrl);
+router.get('/mobile/callback', handleMobileCallback);
 router.get('/status', getConnectionStatus);
 router.get('/callback', handleCallback);
 router.post('/mobile/exchange-code', exchangeMobileCode);

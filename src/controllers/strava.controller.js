@@ -13,6 +13,8 @@ const {
 const getFrontendUrl = () => process.env.FRONTEND_URL || 'http://localhost:5173';
 const getMobileRedirectUri = () =>
   process.env.STRAVA_MOBILE_REDIRECT_URI || 'stravaranking://auth/strava/callback';
+const getMobileBridgeUrl = () =>
+  process.env.STRAVA_MOBILE_BRIDGE_URL || `${getFrontendUrl()}/api/strava/mobile/callback`;
 
 const getStravaConfig = () => {
   const {
@@ -20,6 +22,7 @@ const getStravaConfig = () => {
     STRAVA_CLIENT_SECRET,
     STRAVA_REDIRECT_URI,
     STRAVA_MOBILE_REDIRECT_URI,
+    STRAVA_MOBILE_BRIDGE_URL,
   } = process.env;
 
   if (!STRAVA_CLIENT_ID || !STRAVA_CLIENT_SECRET || !STRAVA_REDIRECT_URI) {
@@ -36,6 +39,7 @@ const getStravaConfig = () => {
     clientSecret: STRAVA_CLIENT_SECRET,
     redirectUri: STRAVA_REDIRECT_URI,
     mobileRedirectUri: STRAVA_MOBILE_REDIRECT_URI || getMobileRedirectUri(),
+    mobileBridgeUrl: STRAVA_MOBILE_BRIDGE_URL || getMobileBridgeUrl(),
   };
 };
 
@@ -201,10 +205,10 @@ const getAuthUrl = (_req, res) => {
 };
 
 const getMobileAuthUrl = (_req, res) => {
-  const { clientId, mobileRedirectUri } = getStravaConfig();
+  const { clientId, mobileBridgeUrl } = getStravaConfig();
   const params = new URLSearchParams({
     client_id: clientId,
-    redirect_uri: mobileRedirectUri,
+    redirect_uri: mobileBridgeUrl,
     response_type: 'code',
     approval_prompt: 'auto',
     scope: 'read,activity:read_all',
@@ -212,7 +216,7 @@ const getMobileAuthUrl = (_req, res) => {
 
   return res.json({
     authUrl: `https://www.strava.com/oauth/mobile/authorize?${params.toString()}`,
-    redirectUri: mobileRedirectUri,
+    redirectUri: mobileBridgeUrl,
   });
 };
 
@@ -356,6 +360,26 @@ const exchangeMobileCode = async (req, res, next) => {
   }
 };
 
+const handleMobileCallback = (req, res) => {
+  const { code, scope, error } = req.query;
+  const redirectUri = new URL(getMobileRedirectUri());
+
+  if (error) {
+    redirectUri.searchParams.set('error', error);
+    return res.redirect(redirectUri.toString());
+  }
+
+  if (code) {
+    redirectUri.searchParams.set('code', code);
+  }
+
+  if (scope) {
+    redirectUri.searchParams.set('scope', scope);
+  }
+
+  return res.redirect(redirectUri.toString());
+};
+
 const getAthlete = async (_req, res, next) => {
   try {
     const athleteId = getAthleteIdFromRequest(_req);
@@ -467,6 +491,7 @@ const refreshUserProfile = async (req, res, next) => {
 module.exports = {
   getAuthUrl,
   getMobileAuthUrl,
+  handleMobileCallback,
   getConnectionStatus,
   handleCallback,
   getAthlete,
