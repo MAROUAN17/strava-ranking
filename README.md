@@ -46,10 +46,11 @@ npm run dev:client
 ```env
 PORT=3000
 NODE_ENV=development
-ALLOWED_ORIGINS=http://localhost:5173
+ALLOWED_ORIGINS=http://localhost:5173,capacitor://localhost,http://localhost
 STRAVA_CLIENT_ID=your-client-id
 STRAVA_CLIENT_SECRET=your-client-secret
 STRAVA_REDIRECT_URI=http://localhost:3000/api/strava/callback
+STRAVA_MOBILE_REDIRECT_URI=stravaranking://auth/strava/callback
 FRONTEND_URL=http://localhost:5173
 ```
 
@@ -101,9 +102,31 @@ Notes:
 - `GET /api/strava/auth-url`
 - `GET /api/strava/status`
 - `GET /api/strava/callback`
+- `GET /api/strava/mobile/auth-url`
+- `POST /api/strava/mobile/exchange-code`
 - `GET /api/strava/athlete`
 - `GET /api/strava/activities`
 - `POST /api/strava/leaderboard/:athleteId/refresh`
+
+## Capacitor mobile auth
+
+For the mobile app, Strava redirects back into Capacitor through:
+
+```txt
+stravaranking://auth/strava/callback
+```
+
+The app listens for that deep link, extracts the Strava `code`, and sends it to:
+
+```txt
+POST /api/strava/mobile/exchange-code
+```
+
+If you change the mobile redirect scheme, update all three places together:
+
+- `STRAVA_MOBILE_REDIRECT_URI`
+- [`client/src/App.jsx`](/home/marouan/Desktop/ranking-strava/client/src/App.jsx)
+- Android/iOS deep-link configuration
 
 ## Frontend flow
 

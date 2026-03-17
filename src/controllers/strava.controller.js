@@ -11,9 +11,16 @@ const {
 } = require('../services/leaderboard.store');
 
 const getFrontendUrl = () => process.env.FRONTEND_URL || 'http://localhost:5173';
+const getMobileRedirectUri = () =>
+  process.env.STRAVA_MOBILE_REDIRECT_URI || 'stravaranking://auth/strava/callback';
 
 const getStravaConfig = () => {
-  const { STRAVA_CLIENT_ID, STRAVA_CLIENT_SECRET, STRAVA_REDIRECT_URI } = process.env;
+  const {
+    STRAVA_CLIENT_ID,
+    STRAVA_CLIENT_SECRET,
+    STRAVA_REDIRECT_URI,
+    STRAVA_MOBILE_REDIRECT_URI,
+  } = process.env;
 
   if (!STRAVA_CLIENT_ID || !STRAVA_CLIENT_SECRET || !STRAVA_REDIRECT_URI) {
     const error = new Error(
@@ -28,10 +35,11 @@ const getStravaConfig = () => {
     clientId: STRAVA_CLIENT_ID,
     clientSecret: STRAVA_CLIENT_SECRET,
     redirectUri: STRAVA_REDIRECT_URI,
+    mobileRedirectUri: STRAVA_MOBILE_REDIRECT_URI || getMobileRedirectUri(),
   };
 };
 
-const exchangeCodeForToken = async (code) => {
+const exchangeCodeForToken = async (code, redirectUri) => {
   const { clientId, clientSecret } = getStravaConfig();
 
   const response = await fetch(STRAVA_TOKEN_URL, {
@@ -43,6 +51,7 @@ const exchangeCodeForToken = async (code) => {
       client_id: clientId,
       client_secret: clientSecret,
       code,
+      redirect_uri: redirectUri,
       grant_type: 'authorization_code',
     }),
   });
@@ -191,6 +200,22 @@ const getAuthUrl = (_req, res) => {
   });
 };
 
+const getMobileAuthUrl = (_req, res) => {
+  const { clientId, mobileRedirectUri } = getStravaConfig();
+  const params = new URLSearchParams({
+    client_id: clientId,
+    redirect_uri: mobileRedirectUri,
+    response_type: 'code',
+    approval_prompt: 'auto',
+    scope: 'read,activity:read_all',
+  });
+
+  return res.json({
+    authUrl: `https://www.strava.com/oauth/mobile/authorize?${params.toString()}`,
+    redirectUri: mobileRedirectUri,
+  });
+};
+
 const getConnectionStatus = (_req, res) => {
   res.json({
     connected: true,
@@ -218,7 +243,7 @@ const handleCallback = async (req, res, next) => {
       });
     }
 
-    const tokenData = await exchangeCodeForToken(code);
+    const tokenData = await exchangeCodeForToken(code, getStravaConfig().redirectUri);
     const athleteId = tokenData.athlete?.id;
 
     if (!athleteId) {
@@ -266,6 +291,66 @@ const handleCallback = async (req, res, next) => {
     frontendUrl.searchParams.set('athleteId', String(userRecord.athleteId));
 
     return res.redirect(frontendUrl.toString());
+  } catch (err) {
+    return next(err);
+  }
+};
+
+const exchangeMobileCode = async (req, res, next) => {
+  const { code, scope } = req.body || {};
+
+  try {
+    if (!code) {
+      return res.status(400).json({
+        error: 'StravaAuthorizationCodeMissing',
+        message: 'No mobile authorization code was provided.',
+      });
+    }
+
+    const tokenData = await exchangeCodeForToken(code, getMobileRedirectUri());
+    const athleteId = tokenData.athlete?.id;
+
+    if (!athleteId) {
+      const errorObject = new Error('Strava did not return an athlete id during mobile authorization.');
+      errorObject.status = 502;
+      errorObject.name = 'StravaAthleteMissing';
+      throw errorObject;
+    }
+
+    const athlete = tokenData.athlete;
+    const activitiesResponse = await fetch(`${STRAVA_API_BASE_URL}/athlete/activities?per_page=30&page=1`, {
+      headers: {
+        Authorization: `Bearer ${tokenData.access_token}`,
+      },
+    });
+    const activitiesData = await activitiesResponse.json();
+
+    if (!activitiesResponse.ok) {
+      const errorObject = new Error(activitiesData.message || 'Unable to load athlete activities from Strava.');
+      errorObject.status = activitiesResponse.status;
+      errorObject.name = 'StravaActivitiesFetchError';
+      errorObject.details = activitiesData;
+      throw errorObject;
+    }
+
+    const userRecord = buildUserRecord({
+      athlete,
+      activities: Array.isArray(activitiesData) ? activitiesData : [],
+      scope: scope || tokenData.scope || null,
+      tokens: {
+        accessToken: tokenData.access_token,
+        refreshToken: tokenData.refresh_token,
+        expiresAt: tokenData.expires_at,
+      },
+    });
+
+    await upsertUser(userRecord);
+
+    return res.json({
+      connected: true,
+      athleteId: userRecord.athleteId,
+      athlete: `${athlete.firstname} ${athlete.lastname}`,
+    });
   } catch (err) {
     return next(err);
   }
@@ -381,6 +466,7 @@ const refreshUserProfile = async (req, res, next) => {
 
 module.exports = {
   getAuthUrl,
+  getMobileAuthUrl,
   getConnectionStatus,
   handleCallback,
   getAthlete,
@@ -388,4 +474,5 @@ module.exports = {
   getUserProfile,
   listActivities,
   refreshUserProfile,
+  exchangeMobileCode,
 };

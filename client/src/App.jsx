@@ -1,29 +1,52 @@
 import { useEffect, useMemo, useState } from 'react';
+import { App as CapacitorApp } from '@capacitor/app';
+import { Browser } from '@capacitor/browser';
+import { Capacitor } from '@capacitor/core';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '';
+const MOBILE_REDIRECT_SCHEME =
+  import.meta.env.VITE_MOBILE_REDIRECT_SCHEME || 'stravaranking://auth/strava/callback';
+
+const parseResponse = async (response) => {
+  const contentType = response.headers.get('content-type') || '';
+  const text = await response.text();
+  const isJson = contentType.includes('application/json');
+  const data = isJson && text ? JSON.parse(text) : null;
+
+  if (!response.ok) {
+    const message =
+      data?.message ||
+      (text ? text.slice(0, 140) : '') ||
+      `Request failed with status ${response.status}`;
+
+    throw new Error(message);
+  }
+
+  if (isJson) {
+    return data || {};
+  }
+
+  if (!text) {
+    return {};
+  }
+
+  throw new Error('The server returned a non-JSON response. Check your API URL and deployment routing.');
+};
 
 const getJson = async (path) => {
   const response = await fetch(`${API_BASE_URL}${path}`);
-  const data = await response.json();
-
-  if (!response.ok) {
-    throw new Error(data.message || 'Request failed.');
-  }
-
-  return data;
+  return parseResponse(response);
 };
 
-const postJson = async (path) => {
+const postJson = async (path, body) => {
   const response = await fetch(`${API_BASE_URL}${path}`, {
     method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: body ? JSON.stringify(body) : undefined,
   });
-  const data = await response.json();
-
-  if (!response.ok) {
-    throw new Error(data.message || 'Request failed.');
-  }
-
-  return data;
+  return parseResponse(response);
 };
 
 const formatDistance = (meters) => `${((meters || 0) / 1000).toFixed(1)} km`;
@@ -87,6 +110,77 @@ function App() {
   };
 
   useEffect(() => {
+    if (!Capacitor.isNativePlatform()) {
+      return undefined;
+    }
+
+    let listenerHandle;
+
+    const setupDeepLinkListener = async () => {
+      listenerHandle = await CapacitorApp.addListener('appUrlOpen', async ({ url }) => {
+        if (!url || !url.startsWith(MOBILE_REDIRECT_SCHEME)) {
+          return;
+        }
+
+        try {
+          const parsedUrl = new URL(url);
+          const code = parsedUrl.searchParams.get('code');
+          const scope = parsedUrl.searchParams.get('scope');
+          const error = parsedUrl.searchParams.get('error');
+
+          await Browser.close();
+
+          if (error) {
+            setFeedback({
+              tone: 'error',
+              text: error,
+            });
+            return;
+          }
+
+          if (!code) {
+            setFeedback({
+              tone: 'error',
+              text: 'No Strava authorization code was returned to the app.',
+            });
+            return;
+          }
+
+          setIsConnecting(true);
+
+          const result = await postJson('/api/strava/mobile/exchange-code', {
+            code,
+            scope,
+          });
+
+          await loadLeaderboard(result.athleteId);
+          setFeedback({
+            tone: 'success',
+            text: result.athlete
+              ? `${result.athlete} has been added to the leaderboard.`
+              : 'Athlete connected successfully.',
+          });
+        } catch (errorObject) {
+          setFeedback({
+            tone: 'error',
+            text: errorObject.message,
+          });
+        } finally {
+          setIsConnecting(false);
+        }
+      });
+    };
+
+    setupDeepLinkListener();
+
+    return () => {
+      if (listenerHandle) {
+        listenerHandle.remove();
+      }
+    };
+  }, []);
+
+  useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const status = params.get('status');
     const athlete = params.get('athlete');
@@ -118,6 +212,14 @@ function App() {
     setIsConnecting(true);
 
     try {
+      if (Capacitor.isNativePlatform()) {
+        const data = await getJson('/api/strava/mobile/auth-url');
+        await Browser.open({
+          url: data.authUrl,
+        });
+        return;
+      }
+
       const data = await getJson('/api/strava/auth-url');
       window.location.href = data.authUrl;
     } catch (error) {

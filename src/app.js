@@ -14,14 +14,38 @@ const allowedOrigins = (process.env.ALLOWED_ORIGINS || process.env.FRONTEND_URL 
   .map((value) => value.trim())
   .filter(Boolean);
 
+const isAllowedOrigin = (origin) => {
+  if (!origin || origin === 'null') {
+    return true;
+  }
+
+  if (allowedOrigins.includes(origin)) {
+    return true;
+  }
+
+  try {
+    const parsed = new URL(origin);
+    const hostname = parsed.hostname;
+
+    if (hostname === 'localhost' || hostname === '127.0.0.1') {
+      return true;
+    }
+  } catch (_error) {
+    return false;
+  }
+
+  return false;
+};
+
 app.use(
   cors({
     origin(origin, callback) {
-      if (!origin || allowedOrigins.length === 0 || allowedOrigins.includes(origin)) {
+      if (allowedOrigins.length === 0 || isAllowedOrigin(origin)) {
         return callback(null, true);
       }
 
-      return callback(new Error('CORS origin not allowed.'));
+      console.error(`CORS origin not allowed: ${origin}`);
+      return callback(null, false);
     },
   })
 );

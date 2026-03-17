@@ -9,10 +9,16 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@capacitor/app": "^8.0.1",
+    "@capacitor/android": "^8.2.0",
+    "@capacitor/browser": "^8.0.2",
+    "@capacitor/core": "^8.2.0",
+    "@capacitor/ios": "^8.2.0",
     "react": "^19.1.1",
     "react-dom": "^19.1.1"
   },
   "devDependencies": {
+    "@capacitor/cli": "^8.2.0",
     "@vitejs/plugin-react": "^5.0.2",
     "vite": "^7.1.4"
   }

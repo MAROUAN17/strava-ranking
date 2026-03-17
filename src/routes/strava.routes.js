@@ -2,6 +2,7 @@ const express = require('express');
 
 const {
   getAuthUrl,
+  getMobileAuthUrl,
   getConnectionStatus,
   handleCallback,
   getAthlete,
@@ -9,13 +10,16 @@ const {
   getUserProfile,
   listActivities,
   refreshUserProfile,
+  exchangeMobileCode,
 } = require('../controllers/strava.controller');
 
 const router = express.Router();
 
 router.get('/auth-url', getAuthUrl);
+router.get('/mobile/auth-url', getMobileAuthUrl);
 router.get('/status', getConnectionStatus);
 router.get('/callback', handleCallback);
+router.post('/mobile/exchange-code', exchangeMobileCode);
 router.get('/athlete', getAthlete);
 router.get('/activities', listActivities);
 router.get('/leaderboard', getLeaderboard);
