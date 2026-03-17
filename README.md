@@ -79,6 +79,22 @@ npm start
 
 In production, Express serves the built frontend from `client/dist`, so you can host this as a single app.
 
+## Docker
+
+Build and run with Docker Compose:
+
+```bash
+docker compose up --build
+```
+
+The app will be available on `http://localhost:3000`.
+
+Notes:
+
+- The SQLite database is persisted through the mounted [`data`](/home/marouan/Desktop/ranking-strava/data) folder.
+- Make sure [`.env`](/home/marouan/Desktop/ranking-strava/.env) contains your production-ready Strava values before starting.
+- Rotate your Strava client secret if it was exposed previously.
+
 ## Main routes
 
 - `GET /api/health`

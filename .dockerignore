@@ -1,0 +1,10 @@
+node_modules
+client/node_modules
+client/dist
+npm-debug.log*
+.git
+.gitignore
+README.md
+data/*.sqlite
+data/*.sqlite-shm
+data/*.sqlite-wal
